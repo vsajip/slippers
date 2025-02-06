@@ -103,7 +103,7 @@ class SlippersFilterExpression(FilterExpression):
 ########################################################################################################################
 
 # Regex for token keyword arguments
-kwarg_re = _lazy_re_compile(r"(?:([\w\-\:\@]+)=)?(.+)")
+kwarg_re = _lazy_re_compile(r"(?:([\w\-\:\@\.]+)=)?(.+)")
 
 
 def slippers_token_kwargs(bits, parser, support_legacy=False):

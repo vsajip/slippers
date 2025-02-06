@@ -97,7 +97,6 @@ class ComponentNode(template.Node):
         attributes = {
             key: value.resolve(context) for key, value in self.raw_attributes.items()
         }
-
         template = context.template.engine.get_template(self.template_path)
 
         if not self.nodelist:
@@ -109,7 +108,6 @@ class ComponentNode(template.Node):
             want_params = settings.SLIPPERS_PARAMS_VISIBLE_IN_CHILDREN
             want_vars = settings.SLIPPERS_VARS_VISIBLE_IN_CHILDREN
 
-            # if 'test_component' in self.template_path: import pdb; pdb.set_trace()
             if want_params:
                 context.dicts.append(attributes)
             if want_vars:
@@ -154,8 +152,17 @@ class ComponentNode(template.Node):
             attributes = {**props}
 
         # Stage 2: Render template
+        ctx = dict(attributes)
+        ctx['children'] = children
+        # Certain special values need to be passed from the external context, otherwise commom
+        # things can fail.We may need to generalise this to other values. For now,
+        # 'csrf_token' because it's needed by the {% csrf_token %} tag. Another possibility for
+        # this treatment is 'request'. In fact, any of the keys which might be inserted by
+        # the standard template context processors (django.template.context_processors).
+        if 'csrf_token' in context:
+            ctx['csrf_token'] = context['csrf_token']
         raw_output = template.render(
-            Context({**attributes, "children": children}, autoescape=context.autoescape)
+            Context(ctx, autoescape=context.autoescape)
         )
 
         output_template_section = mark_safe(extract_template_parts(raw_output)[1])
@@ -215,13 +222,33 @@ def attr_string(key: str, value: Any):
 
     return f'{key}="{value}"'
 
+SUPPORT_DOTS = True
 
 class AttrsNode(template.Node):
     def __init__(self, attr_map: Dict):
         self.attr_map = attr_map
 
     def render(self, context):
-        values = {key: value.resolve(context) for key, value in self.attr_map.items()}
+        # We can't ask Django to resolve vars if they're to contain dots, e.g. for
+        # Alpine we might have 'x-on:click.outside' which Django would try and resolve
+        # by splitting into 'x-on:click.outside' into 'x-on:click' and 'outside', then
+        # looking for 'x-on:click' in the context and if found, interrogating that for
+        # 'outside'. Instead, we just look for the key in the context and if found, use
+        # th corresponding value - else, try Django's resolution. Note - this might
+        # break in some cases where a context has keys 'foo' and 'foo.bar', in whcih case
+        # Django would get `foo` and ask it for `bar', but now we'd return the `foo.bar`
+        # value from the context/ This is gated by the SUPPORT_DOTS, currently set to Tue
+        # for testimg.
+        if not SUPPORT_DOTS:
+            values = {key: value.resolve(context) for key, value in self.attr_map.items()}
+        else:
+            values = {}
+            for key, value in self.attr_map.items():
+                if value.is_var and value.var.var in context:
+                    value = context[value.var.var]
+                else:
+                    value = value.resolve(context)
+                values[key] = value
         attr_strings = [
             attr_string(key, value) for key, value in values.items() if value
         ]
@@ -257,8 +284,7 @@ def do_var(parser, token):
         f"The syntax for {token.contents.split()[0]} is {{% var var_name=var_value %}}"
     )
     try:
-        parts = token.split_contents()
-        parts.pop(0)  # lose tag name
+        tag_name, *parts = token.split_contents()
         var_map = slippers_token_kwargs(parts, parser)
     except ValueError:
         raise template.TemplateSyntaxError(error_message)
