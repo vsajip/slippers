@@ -226,7 +226,6 @@ def attr_string(key: str, value: Any):
 
     return f'{key}="{value}"'
 
-SUPPORT_DOTS_IN_ATTRS = True
 
 class AttrsNode(template.Node):
     def __init__(self, attr_map: Dict):
@@ -243,6 +242,9 @@ class AttrsNode(template.Node):
         # Django would get `foo` and ask it for `bar', but now we'd return the `foo.bar`
         # value from the context/ This is gated by the SUPPORT_DOTS_IN_ATTRS, currently
         # set to Tue for testimg.
+
+        SUPPORT_DOTS_IN_ATTRS = True
+
         if not SUPPORT_DOTS_IN_ATTRS:
             values = {key: value.resolve(context) for key, value in self.attr_map.items()}
         else:
