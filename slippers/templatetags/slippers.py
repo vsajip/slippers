@@ -159,8 +159,12 @@ class ComponentNode(template.Node):
         # 'csrf_token' because it's needed by the {% csrf_token %} tag. Another possibility for
         # this treatment is 'request'. In fact, any of the keys which might be inserted by
         # the standard template context processors (django.template.context_processors).
-        if 'csrf_token' in context:
-            ctx['csrf_token'] = context['csrf_token']
+        # We also pass the config key for the site-wide configuration data, and the request
+        # in case that's useful
+        special_keys = ('csrf_token', 'config', 'request')
+        for key in special_keys:
+            if key in context:
+                ctx[key] = context[key]
         raw_output = template.render(
             Context(ctx, autoescape=context.autoescape)
         )
@@ -222,7 +226,7 @@ def attr_string(key: str, value: Any):
 
     return f'{key}="{value}"'
 
-SUPPORT_DOTS = True
+SUPPORT_DOTS_IN_ATTRS = True
 
 class AttrsNode(template.Node):
     def __init__(self, attr_map: Dict):
@@ -237,9 +241,9 @@ class AttrsNode(template.Node):
         # th corresponding value - else, try Django's resolution. Note - this might
         # break in some cases where a context has keys 'foo' and 'foo.bar', in whcih case
         # Django would get `foo` and ask it for `bar', but now we'd return the `foo.bar`
-        # value from the context/ This is gated by the SUPPORT_DOTS, currently set to Tue
-        # for testimg.
-        if not SUPPORT_DOTS:
+        # value from the context/ This is gated by the SUPPORT_DOTS_IN_ATTRS, currently
+        # set to Tue for testimg.
+        if not SUPPORT_DOTS_IN_ATTRS:
             values = {key: value.resolve(context) for key, value in self.attr_map.items()}
         else:
             values = {}
