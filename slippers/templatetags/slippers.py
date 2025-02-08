@@ -250,7 +250,11 @@ class AttrsNode(template.Node):
         else:
             values = {}
             for key, value in self.attr_map.items():
-                if value.is_var and value.var.var in context:
+                #
+                # Note that empty values might be present as missing values, so
+                # it's not enough for a key to be in the context.
+                #
+                if value.is_var and context.get(value.var.var):
                     value = context[value.var.var]
                 else:
                     value = value.resolve(context)
