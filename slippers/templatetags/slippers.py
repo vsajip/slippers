@@ -216,13 +216,14 @@ def attr_string(key: str, value: Any):
     # a hyphen is not a valid character in a Django template variable name
     # So we can use an underscore when we want to use a hyphen in an HTML attribute name
     # e.g. `aria_role` turns into `aria-role`
-    if "_" in key:
-        warn(
-            f"Underscores in attribute names are deprecated. Use hyphens instead. {key}",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    key = key.replace("_", "-")
+    if key != '_':
+      if "_" in key:
+          warn(
+              f"Underscores in attribute names are deprecated. Use hyphens instead. {key}",
+              DeprecationWarning,
+              stacklevel=2,
+          )
+      key = key.replace("_", "-")
 
     return f'{key}="{value}"'
 
