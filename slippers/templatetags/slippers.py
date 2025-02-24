@@ -4,6 +4,7 @@ from warnings import warn
 
 from django import template
 from django.conf import settings as django_settings
+from django.dispatch import Signal
 from django.template import Context, NodeList
 from django.template.base import VariableNode
 from django.utils.safestring import mark_safe
@@ -13,7 +14,7 @@ from slippers.props import Props, check_prop_types, render_error_html
 from slippers.template import slippers_token_kwargs
 
 register = template.Library()
-
+component_rendered = Signal()
 
 ##
 # Component tags
@@ -168,7 +169,7 @@ class ComponentNode(template.Node):
         raw_output = template.render(
             Context(ctx, autoescape=context.autoescape)
         )
-
+        component_rendered.send(sender=self, context=ctx)
         output_template_section = mark_safe(extract_template_parts(raw_output)[1])
 
         if prop_errors and (
